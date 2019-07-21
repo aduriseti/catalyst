@@ -33,7 +33,7 @@ def initialize(context):
     # parameters or values you're going to use.
 
     # In our example, we're looking at Neo in Ether.
-    context.market = symbol('bnb_eth')
+    context.market = symbol('eth_btc')
     context.base_price = None
     context.current_day = None
 
@@ -240,11 +240,15 @@ def analyze(context=None, perf=None):
     plt.gcf().set_size_inches(18, 8)
     plt.show()
     pass
+    from catalyst.exchange.utils.stats_utils import get_pretty_stats
+    log.info('the daily stats:\n{}'.format(get_pretty_stats(perf)))
+    log.info('beginning stats:\n{}'.format(get_pretty_stats(perf,num_rows=5,show_tail=False)))
+    log.info('end stats:\n{}'.format(get_pretty_stats(perf,num_rows=5,show_tail=True)))
 
 
 if __name__ == '__main__':
     # The execution mode: backtest or live
-    live = True
+    live = False
 
     if live:
         run_algorithm(
@@ -255,7 +259,7 @@ if __name__ == '__main__':
             exchange_name='binance',
             live=True,
             algo_namespace=NAMESPACE,
-            quote_currency='eth',
+            quote_currency='usd',
             live_graph=False,
             simulate_orders=False,
             stats_output=None,

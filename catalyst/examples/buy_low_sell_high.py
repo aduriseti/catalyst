@@ -1,3 +1,4 @@
+#%%
 import talib
 import pandas as pd
 from logbook import Logger
@@ -14,6 +15,7 @@ from catalyst.utils.run_algo import run_algorithm
 algo_namespace = 'buy_the_dip_live'
 log = Logger('buy low sell high')
 
+#%%
 
 def initialize(context):
     log.info('initializing algo')
@@ -138,8 +140,10 @@ def handle_data(context, data):
 
 def analyze(context, stats):
     log.info('the daily stats:\n{}'.format(get_pretty_stats(stats)))
+    log.info('beginning stats:\n{}'.format(get_pretty_stats(stats,num_rows=5,show_tail=False)))
+    log.info('end stats:\n{}'.format(get_pretty_stats(stats,num_rows=5,show_tail=True)))
     pass
-
+#%%
 
 if __name__ == '__main__':
     live = False
@@ -168,3 +172,4 @@ if __name__ == '__main__':
             start=pd.to_datetime('2015-03-01', utc=True),
             end=pd.to_datetime('2017-10-31', utc=True),
         )
+#%%
