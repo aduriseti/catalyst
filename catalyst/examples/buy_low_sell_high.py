@@ -163,13 +163,17 @@ if __name__ == '__main__':
         run_algorithm(
             capital_base=10000,
             data_frequency='daily',
+            # data_frequency='minute',
             initialize=initialize,
             handle_data=handle_data,
             analyze=analyze,
-            exchange_name='poloniex',
+            # exchange_name='poloniex',
+            exchange_name='binance',
             algo_namespace='buy_and_hodl',
             quote_currency='usdt',
-            start=pd.to_datetime('2015-03-01', utc=True),
-            end=pd.to_datetime('2017-10-31', utc=True),
+            # start=pd.to_datetime('2015-03-01', utc=True),
+            # end=pd.to_datetime('2017-10-31', utc=True),
+            start=pd.to_datetime('2018-01-01', utc=True),
+            end=pd.to_datetime('2019-7-01', utc=True),
         )
 #%%

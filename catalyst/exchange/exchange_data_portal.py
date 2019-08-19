@@ -323,6 +323,7 @@ class DataPortalExchangeBacktest(DataPortalExchangeBase):
             field=field,
             data_frequency=adj_data_frequency,
             algo_end_dt=self._last_available_session,
+            force_auto_ingest=True,
         )
 
         start_dt = get_start_dt(last_dt_for_series, adj_bar_count,

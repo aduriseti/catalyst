@@ -1,3 +1,4 @@
+#%%
 # For this example, we're going to write a simple momentum script.  When the
 # stock goes up quickly, we're going to buy; when it goes down quickly, we're
 # going to sell.  Hopefully we'll ride the waves.
@@ -21,7 +22,17 @@ from catalyst.utils.paths import ensure_directory
 
 NAMESPACE = 'mean_reversion_simple'
 log = Logger(NAMESPACE)
-
+exchange = "bitfinex"
+fromcur = "eth"
+tocur = "btc"
+sym = f"{fromcur}_{tocur}"
+# quoteCurrency = "usd"
+# quoteCurrency = "xrp"
+quoteCurrency = "btc"
+# referenceCurrency = "btc"
+referenceCurrency = "usd"
+initVal = 1000
+freq = "minute"
 
 # To run an algorithm in Catalyst, you need two functions: initialize and
 # handle_data.
@@ -33,7 +44,7 @@ def initialize(context):
     # parameters or values you're going to use.
 
     # In our example, we're looking at Neo in Ether.
-    context.market = symbol('eth_btc')
+    context.market = symbol(sym)
     context.base_price = None
     context.current_day = None
 
@@ -154,10 +165,82 @@ def handle_data(context, data):
         )
         context.traded_today = True
 
+def getpricehists(context,symbols):
+    import datetime 
+    import catalyst
+    # first_trading_day=context.sim_params.start_session,
+    # last_available_session=context.sim_params.end_session
+    start = context.sim_params.first_open
+    end = context.sim_params.last_close
+    mdelta = datetime.timedelta(0,0,0,0,1)
+    L = int((end - start).total_seconds() // mdelta.total_seconds()) + 10
+    dataportal = catalyst.exchange.exchange_data_portal.DataPortalExchangeBacktest(
+        exchange_names=context.exchanges.keys(),
+        asset_finder=None,
+        trading_calendar=context.trading_calendar,
+        first_trading_day=start,
+        last_available_session=end,
+    )
+    endbardata = catalyst.protocol.BarData(
+        dataportal, # data_portal
+        lambda : end + 5*mdelta, # simulation_dt_func
+        freq, # data_frequeny
+        context.trading_calendar, # trading_calendar
+        context.restrictions, # restrictions
+        universe_func=context._calculate_universe,
+    )
+    refhists = []
+    for sym in symbols:
+        try:
+            sym = symbol(sym)
+            refhists.append(endbardata.history(sym,"close",L,"T"))
+        except Exception as e:
+            print(f"Obtaining market history for {sym} failed w/ {e}")
+            # refhists.append(None)
+    return refhists
 
+endctx = None
+endperf = None
 def analyze(context=None, perf=None):
+    global endctx
+    endctx = context
+    global endperf
+    endperf = perf
+
     end = time.time()
     log.info('elapsed time: {}'.format(end - context.start_time))
+
+    perf["hodl"] = perf["starting_cash"]
+    perf["ref"] = np.NaN
+    if quoteCurrency != referenceCurrency:
+        refhists = []
+        refsyms = [f"{quoteCurrency}_{referenceCurrency}",f"{referenceCurrency}_{quoteCurrency}"]
+        refhists = getpricehists(context,refsyms)
+        refratenorms = [lambda _: _, lambda z: 1/z]
+        print([(s,np.isnan(v.values).sum(),np.isnan(1/v.values).sum()) for s,v in zip(refsyms,refhists)])
+        # default to no transform if not suitiable conversion or if no conversion necessar
+        refhist,*_ = [refratenorm(refhist) for refhist,refratenorm in zip(refhists,refratenorms)] + [None]
+        print(f"hist: {type(refhist)}")
+        try:
+            capital_base_ref = context.sim_params.capital_base * 1 / refhist.loc[context.sim_params.first_open]
+            print(perf.shape,refhist.shape)
+            print(context.sim_params.capital_base,refhist[0],capital_base_ref)
+            perf["hodl"] = capital_base_ref * refhist
+            perf["ref"] = refhist
+        except Exception as e:
+            print(f"Caluculating reference hodl strategy failed w/ {e} defaulting to {quoteCurrency}")
+
+
+    import catalyst
+    from catalyst.exchange.utils.stats_utils import get_pretty_stats       
+    # log.info('the daily stats:\n{}'.format(get_pretty_stats(perf)))
+    # log.info('beginning stats:\n{}'.format(get_pretty_stats(perf,num_rows=5,show_tail=False)))
+    # log.info('end stats:\n{}'.format(get_pretty_stats(perf,num_rows=5,show_tail=True)))
+    cols = ["starting_cash","portfolio_value","pnl","hodl","ref"]
+    log.info(f'beginning stats:\n{perf[cols].iloc[:5]}')
+    log.info(f'end stats:\n{perf[cols].iloc[-5:]}')
+    return
+
 
     import matplotlib.pyplot as plt
     # The quote currency of the algo exchange
@@ -240,12 +323,7 @@ def analyze(context=None, perf=None):
     plt.gcf().set_size_inches(18, 8)
     plt.show()
     pass
-    from catalyst.exchange.utils.stats_utils import get_pretty_stats
-    log.info('the daily stats:\n{}'.format(get_pretty_stats(perf)))
-    log.info('beginning stats:\n{}'.format(get_pretty_stats(perf,num_rows=5,show_tail=False)))
-    log.info('end stats:\n{}'.format(get_pretty_stats(perf,num_rows=5,show_tail=True)))
-
-
+#%%
 if __name__ == '__main__':
     # The execution mode: backtest or live
     live = False
@@ -278,16 +356,19 @@ if __name__ == '__main__':
         #    -x bitfinex -s 2017-10-1 -e 2017-11-10 -c usdt -n mean-reversion \
         #   --data-frequency minute --capital-base 10000
         run_algorithm(
-            capital_base=0.035,
-            data_frequency='minute',
+            capital_base=initVal,
+            data_frequency=freq,
             initialize=initialize,
             handle_data=handle_data,
             analyze=analyze,
-            exchange_name='bitfinex',
+            exchange_name=exchange,
             algo_namespace=NAMESPACE,
-            quote_currency='btc',
+            quote_currency=quoteCurrency,
+            # start=pd.to_datetime('2017-10-01', utc=True),
+            # end=pd.to_datetime('2017-11-10', utc=True),
             start=pd.to_datetime('2017-10-01', utc=True),
-            end=pd.to_datetime('2017-11-10', utc=True),
+            end=pd.to_datetime('2017-10-02', utc=True),
             output=out
         )
         log.info('saved perf stats: {}'.format(out))
+#%%

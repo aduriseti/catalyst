@@ -13,7 +13,7 @@ log = Logger(NAMESPACE)
 
 def initialize(context):
     context.i = 0
-    context.asset = symbol('ltc_usd')
+    context.asset = symbol('btc_usdt')
     context.base_price = None
 
 
@@ -87,6 +87,11 @@ def analyze(context, perf):
     exchange = list(context.exchanges.values())[0]
     quote_currency = exchange.quote_currency.upper()
 
+    from catalyst.exchange.utils.stats_utils import get_pretty_stats
+    log.info('the daily stats:\n{}'.format(get_pretty_stats(perf)))
+    log.info('beginning stats:\n{}'.format(get_pretty_stats(perf,num_rows=5,show_tail=False)))
+    log.info('end stats:\n{}'.format(get_pretty_stats(perf,num_rows=5,show_tail=True)))
+
     # First chart: Plot portfolio value using quote_currency
     ax1 = plt.subplot(411)
     perf.loc[:, ['portfolio_value']].plot(ax=ax1)
@@ -156,9 +161,11 @@ if __name__ == '__main__':
             initialize=initialize,
             handle_data=handle_data,
             analyze=analyze,
-            exchange_name='bitfinex',
+            exchange_name='binance',
             algo_namespace=NAMESPACE,
             quote_currency='usd',
-            start=pd.to_datetime('2017-9-22', utc=True),
-            end=pd.to_datetime('2017-9-23', utc=True),
+            # start=pd.to_datetime('2017-9-22', utc=True),
+            # end=pd.to_datetime('2017-9-23', utc=True),
+            start=pd.to_datetime('2019-6-14', utc=True),
+            end=pd.to_datetime('2019-7-01', utc=True),
         )
