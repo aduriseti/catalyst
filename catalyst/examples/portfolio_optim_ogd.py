@@ -58,10 +58,10 @@ datafreq = "daily" # | "minute"
 # Bitcoin data is available from 2015-3-2. Dates vary for other tokens.
 # start = datetime(2017, 1, 1, 0, 0, 0, 0, pytz.utc)
 # end = datetime(2019, 1, 1, 0, 0, 0, 0, pytz.utc)
-# start = datetime(2019, 1, 1, 0, 0, 0, 0, pytz.utc)
-# end = datetime(2019, 8, 1, 0, 0, 0, 0, pytz.utc)
-start = datetime(2017, 9, 1, 0, 0, 0, 0, pytz.utc)
-end = datetime(2019, 9, 1, 0, 0, 0, 0, pytz.utc)
+start = datetime(2019, 1, 1, 0, 0, 0, 0, pytz.utc)
+end = datetime(2019, 8, 1, 0, 0, 0, 0, pytz.utc)
+# start = datetime(2017, 9, 1, 0, 0, 0, 0, pytz.utc)
+# end = datetime(2019, 9, 1, 0, 0, 0, 0, pytz.utc)
 # start = datetime(2017, 9, 1, 0, 0, 0, 0, pytz.utc)
 # end = datetime(2017, 10, 1, 0, 0, 0, 0, pytz.utc)
 
@@ -94,10 +94,8 @@ def initialize(context):
   # day index - let initialization day be -1
   context.i = -1
   # initial portoflio
-  # record("p",np.ones(len(N))/N)
   context.p = np.ones((1,N))/N
   # initial cummulative portfolio gradient
-  # record("b",np.zeros(len(N)))
   context.b = np.zeros((1,N))
   # initial asset return - populate later
   context.r = np.ones((1,N))
@@ -191,7 +189,7 @@ def handle_data(ctx, data):
                default:float=-1):
     def safehistgen():
       for a in assets:
-        # print(f"Getting price for asset {a.symbol}")
+        if verbose: print(f"Getting price for asset {a.symbol}")
         try:
           asshist = data.history(a,fields='price',bar_count=barcount,frequency='1d').values
           assert len(asshist) == barcount
@@ -207,8 +205,9 @@ def handle_data(ctx, data):
   N = ctx.nassets
   T = ctx.retint
   prices = safehist(assets,T+1)
-  # print("barcount",T+1,"prices",prices.shape)
-  # print([*zip([a.symbol for a in assets],prices)])
+  if debug:
+    print("barcount",T+1,"prices",prices.shape)
+    print([*zip([a.symbol for a in assets],prices)])
   _prices = prices
   
   record(**{a.symbol:p for a,p in zip(ctx.assets,prices[-1,:])})
@@ -250,19 +249,7 @@ def handle_data(ctx, data):
   r = ctx.r  
 
   bdelta =  - r[-1] / np.inner(r[-1],p[-1])
-  # calculate cummulative gradient
-  # bi = b[-1] + bdelta
-  # bi = np.sum((*b, bdelta),axis=0)
-  # print("bcum",np.round(bi,2))
-  # calculate windowed gradient
-  # bi = bdelta
-  # bi = np.sum((*b[-7:], bdelta),axis=0) # 0.97
-  # bi = np.sum((*b[-30:], bdelta),axis=0) # 1.06
-  # bi = np.sum((*b[-60:], bdelta),axis=0)
-  # bi = np.sum((*b[-90:], bdelta),axis=0) # 1.17
-  # bi = np.sum((*b[-180:], bdelta),axis=0) # 1.17
-  # bi = np.sum((*b[-365:], bdelta),axis=0) # 0.82
-  # bi = np.sum((*b, bdelta),axis=0) # 0.82
+  # calculate cummulative windowed gradient
   # bi = bdelta
   # bi = np.mean((*b[-7:], bdelta),axis=0) # 0.97
   bi = np.mean((*b[-30:], bdelta),axis=0) # 1.06
@@ -274,7 +261,6 @@ def handle_data(ctx, data):
   # print("bwin",np.round(bi,2))
   # calculate forgetful gradient
   # bi = bdelta
-  # print("bcur",np.round(bi,2))
   ctx.b = concat(ctx.b,bdelta)
   # perform one it of OGD
   # scale ogd step by rebal interval, what about return interval?
@@ -284,48 +270,32 @@ def handle_data(ctx, data):
   punc = p[-1] - eta*bi
 
   import cvxopt
-  # support additional constraints
+  # supports additional constraints
   def psuedounitsimplexprojection(v,Gadd=None,hadd=None,Aadd=None,badd=None,eps=1e-4):
     d = len(v)
-
-    # additional constraints empty by defualt
-    # Am I missing something here? - dont think this makes the constraints empty
-    # G = G if G is not None else np.ones((0,))
-    # h = h if h is not None else np.ones((0,d))
-    # A = A if A is not None else np.ones((0,d))
-    # b = b if b is not None else np.ones((0,))
 
     # w.t. find argmin(x) [||x-v|| == (x.T@x - 2x.T@v)]
     # min 1/2*x.T@P@x + q.T@x
     P = np.eye(d)
     q = -v
     # s.t.
-    # add in new constraints
     # TODO: detect/resolve contradictory constraints
     G = -np.eye(d)
     if Gadd is not None: G = np.concatenate((G,Gadd),axis=0)
-    # print("|G|",G.shape)
-    # print(G)
     # by default, require bot to hold at least eps of each currency - helps w/ stability
     # Note: this means default simplex projections is not really a simplex
     h = np.zeros(d)-eps
     if hadd is not None: h = np.concatenate((h,hadd),axis=0)
-    # print("|h|",h.shape)
-    # print(h)
     # total portfolio value proportions must be 1
     A = np.ones((1,d)) 
     if Aadd is not None: A = np.concatenate((A,Aadd),axis=0)
-    # print("|A|",A.shape)
-    # print(A)
     b = np.array([1.])
     if badd is not None: b = np.concatenate((b,badd),axis=0)
-    # print("|b|",b.shape)
-    # print(b)
     
     npMs = [P,q,G,h,A,b]
     cvxopt.solvers.options['show_progress'] = False
     sol = cvxopt.solvers.qp(*[cvxopt.matrix(npM) for npM in npMs])
-    # print(sol["status"],sol["x"])
+    if verbose: print(sol["status"],sol["x"])
     return np.array(sol["x"]).reshape((d,1))
 
     # SOURCE: https://scaron.info/blog/quadratic-programming-in-python.html
@@ -340,6 +310,7 @@ def handle_data(ctx, data):
     #   if 'optimal' not in sol['status']:
     #       return None
     #   return np.array(sol['x']).reshape((P.shape[1],))
+  
   def unitsimplexprojection(v,eps=1e-4):
     d = len(v)
     P = np.eye(d)
@@ -356,30 +327,17 @@ def handle_data(ctx, data):
     # print(sol["x"])
     return np.array(sol["x"]).reshape((d,1))
 
-    # SOURCE: https://scaron.info/blog/quadratic-programming-in-python.html
-    # def cvxopt_solve_qp(P, q, G=None, h=None, A=None, b=None):
-    #   P = .5 * (P + P.T)  # make sure P is symmetric
-    #   args = [cvxopt.matrix(P), cvxopt.matrix(q)]
-    #   if G is not None:
-    #       args.extend([cvxopt.matrix(G), cvxopt.matrix(h)])
-    #       if A is not None:
-    #           args.extend([cvxopt.matrix(A), cvxopt.matrix(b)])
-    #   sol = cvxopt.solvers.qp(*args)
-    #   if 'optimal' not in sol['status']:
-    #       return None
-    #   return np.array(sol['x']).reshape((P.shape[1],))
-
   eps = 1e-6
   d = np.prod(punc.shape)
   # constrain maximum amt of portfolio put into 1 asset
   G = np.eye(d)
   h = np.ones((d,))*0.9
   # additionally, prevent us from holding unavailable assets
-  A = np.eye(d)[~availidx]
   # Note: because we force the bot to allocate at least eps to each asset
   #       we cannot enforce that unavailable assets will have 0 allocation
   #       so instead set them to eps
   #   - could also set eps to 0
+  A = np.eye(d)[~availidx]
   b = np.ones((d,))[~availidx] * eps
   try: 
     pi = psuedounitsimplexprojection(punc.reshape(-1),G,h,A,b,eps)
@@ -393,7 +351,6 @@ def handle_data(ctx, data):
   b = ctx.b
   r = ctx.r
 
-  # print(list(zip([a.symbol for a in ctx.assets]+["usdt"],np.round(pi,3))))
   if verbose:
     # print('r[i]',np.round(r[-1],2))
     # print("b[i]",np.round(b[-1],2))
@@ -436,14 +393,9 @@ def analyze(ctx=None, results=None):
     print(pd.DataFrame.head(data,5))
     print(pd.DataFrame.tail(data,5))
   strats = asyms + ["portfolio_value"]
-  # TODO: calculate returns for coins only from when they are first available
   firstlistingidx = np.argmax(data[strats].values > 0,axis=0)
-  print(firstlistingidx)
-  print([*zip(asyms,firstlistingidx)])
-  # returns = data[strats] / data[strats].iloc[0]
   returns = data[strats] / np.diag(data[strats].values[firstlistingidx])
-  # print(list(zip(strats,np.round(returns,3))))
-  print(list(zip(strats,returns.iloc[-1])))
+  print([*zip(strats,np.round(returns.iloc[-1],3))])
   
   LO = plt.stackplot(range(ctx.p.shape[0]),*ctx.p.T)
   plt.legend(iter(LO),asyms+["usdt"])
@@ -456,10 +408,11 @@ def analyze(ctx=None, results=None):
   plt.legend(iter(LO),asyms+["usdt"])
   plt.show()
 
-  # plt.plot(results["portfolio_value"])
-  # plt.show()
   LO = plt.plot(returns)
   plt.legend(iter(LO),strats)
+  plt.show()
+
+  plt.plot(results["portfolio_value"])
   plt.show()
 
   # # Save results in CSV file
@@ -476,27 +429,4 @@ if __name__ == '__main__':
                           exchange_name=exchangenm,
                           capital_base=100000,
                           quote_currency='usdt')
-#%%
-# asyms = [a.symbol for a in _ctx.assets]
-# data = results[['portfolio_value']+asyms]
-# if verbose:
-#   print(pd.DataFrame.head(data,5))
-#   print(pd.DataFrame.tail(data,5))
-# strats = asyms + ["portfolio_value"]
-# # TODO: calculate returns for coins only from when they are first available
-# #%%
-# data[strats].values
-# #%%
-# firstlistingidx = np.argmax(data[strats].values > 0, axis=0)
-# firstlistingidx
-# #%%
-# firstlistingidx.shape
-# #%%
-# print(firstlistingidx)
-# print([*zip(asyms,firstlistingidx)])
-# #%%
-# # returns = data[strats] / data[strats].iloc[0]
-# returns = data[strats] / np.diag(data[strats].values[firstlistingidx])
-# # print(list(zip(strats,np.round(returns,3))))
-# print(list(zip(strats,returns.iloc[-1])))
 #%%
