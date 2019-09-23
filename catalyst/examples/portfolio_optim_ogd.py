@@ -22,24 +22,33 @@ from datetime import datetime
 
 from catalyst.api import record, symbols, symbol, order_target_percent
 from catalyst.utils.run_algo import run_algorithm
-#%%
+
+# TODO: figure out how to filter symbol by volume and activitiy to decide
+#       what universe of symbols to trade on
 import ccxt
 exch = ccxt.binance()
-exch.loadMarkets()
+markets = exch.loadMarkets()
 syms = exch.symbols
-usdsyms = [s for s in syms if "usd" in s.lower()]
-print(usdsyms)
-#%%
+print("Exchange symbols:", syms)
+usdtsyms = [s for s in syms if "usdt" == s.split("/")[1].lower()]
+print("USDT symbols",usdtsyms)
+
 reference = "usdt"
-# targets = ['btc','eth','ltc',"etc","iota",'dash','xmr',"ada","algo","beam","xrp","zrx","bat","bnb","bch"]
-# targets = ['btc','eth','ltc',"etc","iota",'dash','xmr',"ada","algo","xrp","zrx","bat","bnb","bch"]
-targets = ['btc','eth','ltc',"etc","iota",'dash','xmr',"ada","xrp","zrx","bch"]
+# dont know how to deal w/ inactive markets - blacklist them
+blacklist = ["beam","bch"] + \
+            [s for s,m in markets.items() if not m["active"]]
+# targets = [s.split("/")[0].lower() for s in usdtsyms]
+# targets = ['btc','eth','ltc',"etc","iota",'dash','xmr',"ada","algo","beam","xrp","zrx","bat","bnb","bch",
+#            "xlm","bchabc","zec","waves","qtum","mith"]
+targets = ['btc','eth','ltc',"etc","iota",'dash','xmr',"ada","algo","beam","xrp","zrx","bat","bnb","bch"]
 # targets = ['btc','eth','ltc',"etc","iota",'dash','xmr']
 # targets = ['btc','eth','ltc',"etc","iota"]
 # targets = ['btc','eth','ltc','dash','xmr']
 # targets = ['btc','eth','ltc']
 # targets = ['btc','eth']
 # exchangenm = "poloniex"
+targets = [t for t in targets if t not in blacklist]
+print("currency targets",targets)
 exchangenm = "binance"
 datafreq = "daily" # | "minute"
 
@@ -100,15 +109,16 @@ def initialize(context):
 
 # TODO:
 # 1) [x] support for untradable/unavailable assets
+#   - fixed constraint incompatibility bug
 # 2) [ ] support for assets on different exchanges
 #   - not that important for the timescales I operate on - defer until incorporate arbitrage 
 #   - or until I decrease timescale
 # 3) [ ] newton step?
 #   - not structurally/procedurally important - defer until proper evaluation framework is built
 # 4) plots
-#   - performance
-#   - allocation
-#   - performance vs allocation
+#   - [x] performance
+#   - [x] allocation
+#   - [x] performance vs allocation
 # 5) live execution
 #   - use historical data to avoid cold start
 #   - figure out how to use catalyst w/ real money
@@ -157,7 +167,7 @@ def initialize(context):
 #   - https://systematicinvestor.wordpress.com
 #   - https://cssanalytics.wordpress.com/2012/09/21/minimum-correlation-algorithm-paper-release/
 #   - google search: https://www.google.com/search?q=portfolio+allocation+algorithm
-verbose=0
+verbose=1
 _ctx = None
 _data = None
 _positions = None
@@ -245,11 +255,22 @@ def handle_data(ctx, data):
   # bi = np.sum((*b, bdelta),axis=0)
   # print("bcum",np.round(bi,2))
   # calculate windowed gradient
+  # bi = bdelta
   # bi = np.sum((*b[-7:], bdelta),axis=0) # 0.97
   # bi = np.sum((*b[-30:], bdelta),axis=0) # 1.06
-  bi = np.sum((*b[-60:], bdelta),axis=0)
+  # bi = np.sum((*b[-60:], bdelta),axis=0)
   # bi = np.sum((*b[-90:], bdelta),axis=0) # 1.17
+  # bi = np.sum((*b[-180:], bdelta),axis=0) # 1.17
   # bi = np.sum((*b[-365:], bdelta),axis=0) # 0.82
+  # bi = np.sum((*b, bdelta),axis=0) # 0.82
+  # bi = bdelta
+  # bi = np.mean((*b[-7:], bdelta),axis=0) # 0.97
+  bi = np.mean((*b[-30:], bdelta),axis=0) # 1.06
+  # bi = np.mean((*b[-60:], bdelta),axis=0)
+  # bi = np.mean((*b[-90:], bdelta),axis=0) # 1.17
+  # bi = np.mean((*b[-180:], bdelta),axis=0) # 1.17
+  # bi = np.mean((*b[-365:], bdelta),axis=0) # 0.82
+  # bi = np.mean((*b, bdelta),axis=0) # 0.82
   # print("bwin",np.round(bi,2))
   # calculate forgetful gradient
   # bi = bdelta
@@ -257,7 +278,9 @@ def handle_data(ctx, data):
   ctx.b = concat(ctx.b,bdelta)
   # perform one it of OGD
   # scale ogd step by rebal interval, what about return interval?
-  eta = 1e-1 * ctx.rebint
+  # eta = 1e-1 * ctx.rebint
+  # eta = 1e0 * ctx.rebint
+  eta = 3e-1 * ctx.rebint
   punc = p[-1] - eta*bi
 
   import cvxopt
@@ -346,7 +369,7 @@ def handle_data(ctx, data):
     #       return None
     #   return np.array(sol['x']).reshape((P.shape[1],))
 
-  eps = 1e-5
+  eps = 1e-6
   d = np.prod(punc.shape)
   # constrain maximum amt of portfolio put into 1 asset
   G = np.eye(d)
@@ -388,7 +411,8 @@ def handle_data(ctx, data):
   for asset,avail,percent in zip(assets,availidx,pi):
     if verbose: 
       print(f"Asset {asset.symbol} availability: {avail}, allocating {percent} of portfolio")
-    if avail:
+    # dont bother allocating less than 1% of portfolio
+    if avail and percent >= 1e-2:
       order_target_percent(asset,percent)
 
   # catalyst.api
@@ -413,7 +437,11 @@ def analyze(ctx=None, results=None):
     print(pd.DataFrame.tail(data,5))
   strats = asyms + ["portfolio_value"]
   # TODO: calculate returns for coins only from when they are first available
-  returns = data[strats] / data[strats].iloc[0]
+  firstlistingidx = np.argmax(data[strats].values > 0,axis=0)
+  print(firstlistingidx)
+  print([*zip(asyms,firstlistingidx)])
+  # returns = data[strats] / data[strats].iloc[0]
+  returns = data[strats] / np.diag(data[strats].values[firstlistingidx])
   # print(list(zip(strats,np.round(returns,3))))
   print(list(zip(strats,returns.iloc[-1])))
   
@@ -448,4 +476,27 @@ if __name__ == '__main__':
                           exchange_name=exchangenm,
                           capital_base=100000,
                           quote_currency='usdt')
+#%%
+# asyms = [a.symbol for a in _ctx.assets]
+# data = results[['portfolio_value']+asyms]
+# if verbose:
+#   print(pd.DataFrame.head(data,5))
+#   print(pd.DataFrame.tail(data,5))
+# strats = asyms + ["portfolio_value"]
+# # TODO: calculate returns for coins only from when they are first available
+# #%%
+# data[strats].values
+# #%%
+# firstlistingidx = np.argmax(data[strats].values > 0, axis=0)
+# firstlistingidx
+# #%%
+# firstlistingidx.shape
+# #%%
+# print(firstlistingidx)
+# print([*zip(asyms,firstlistingidx)])
+# #%%
+# # returns = data[strats] / data[strats].iloc[0]
+# returns = data[strats] / np.diag(data[strats].values[firstlistingidx])
+# # print(list(zip(strats,np.round(returns,3))))
+# print(list(zip(strats,returns.iloc[-1])))
 #%%
