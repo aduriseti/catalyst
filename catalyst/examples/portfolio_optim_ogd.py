@@ -118,6 +118,10 @@ def initialize(context: catalyst.TradingAlgorithm):
     "daily": datetime.timedelta(days=1),
     "minute": datetime.timedelta(minutes=1),
   }[datafreq]
+  context.start = start
+  context.end = end
+  context.datafreq = datafreq
+  context.exchangenm = exchangenm
 
 import cvxopt
 # supports additional constraints
@@ -189,8 +193,8 @@ def safehist(ctx: catalyst.TradingAlgorithm,
              assets: typing.Iterable[catalyst.api.symbol],
              barcount: int,
              default:float=-1):
-  begin = until - barcount * ctx.timeinc
-  if begin < ctx.start:
+  # if we want data before traidng start (i.e. during warm phase) - replace data w/ backtest bardata
+  if until < ctx.start:
     dataportal = catalyst.exchange.exchange_data_portal.DataPortalExchangeBacktest(
       exchange_names=ctx.exchanges.keys(),
       asset_finder=None,
@@ -198,23 +202,14 @@ def safehist(ctx: catalyst.TradingAlgorithm,
       first_trading_day=ctx.histstart,
       last_available_session=ctx.start,
     )
-    endbardata = catalyst.protocol.BarData(
-        dataportal, # data_portal
-        lambda : until, # simulation_dt_func
-        freq, # data_frequeny
-        context.trading_calendar, # trading_calendar
-        context.restrictions, # restrictions
-        universe_func=context._calculate_universe,
+    data = catalyst.protocol.BarData(
+      dataportal, # data_portal
+      lambda : until, # simulation_dt_func
+      datafreq, # data_frequeny
+      ctx.trading_calendar, # trading_calendar
+      ctx.restrictions, # restrictions
+      universe_func=ctx._calculate_universe,
     )
-    refhists = []
-    for sym in symbols:
-        try:
-            sym = symbol(sym)
-            refhists.append(endbardata.history(sym,"close",L,"T"))
-        except Exception as e:
-            print(f"Obtaining market history for {sym} failed w/ {e}")
-            # refhists.append(None)
-    return refhists
   def safehistgen():
     for a in assets:
       if verbose: print(f"Getting price for asset {a.symbol}")
@@ -410,19 +405,23 @@ def rebalance(ctx: catalyst.TradingAlgorithm, data: catalyst.protocol.BarData, d
 #   - [x] allocation
 #   - [x] performance vs allocation
 # 5) live execution
-#   - use historical data to avoid cold start
-#   - figure out how to use catalyst w/ real money
-#   - simulated -> live
-#   - deployment
-#   - track performance w/ persistence
+#   - [x] use historical data to avoid cold start
+#   - [ ] figure out how to use catalyst w/ real money
+#   - [ ] simulated -> live
+#   - [ ] deployment
+#   - [ ] track performance w/ persistence
+# 10) minute execution
+#   - [ ] figure out how to ingest all minute data
+#   - [ ] figure out how to detect missing data and auto ingest
+#     - [ ] install dev branch
+#     - [ ] modify data portal code 
 # 6) risk analysis
 #   - To finish the comparison between our portfolios and DJIA, lets do a very simple risk analysis with just empirical quantiles using historical results
 #   - For a proper risk analysis we should model the conditional volatility of the portfolio, but this will be discussed in another post.
 #   - https://insightr.wordpress.com/2017/06/22/online-portfolio-allocation-with-a-very-simple-algorithm/
 # 7) support for shorting, incorporate into simplex constraints
-# 8) soft window
+# 8) [x] soft window
 # 9) penalize orders w/ transaction cost in ogd
-# 10) minute execution
 # 11) hyperparameter optimization
 #   - Idea: train test split becomes temporal
 #   - k-fold cross eval
@@ -469,25 +468,12 @@ def handle_data(ctx: catalyst.TradingAlgorithm, data: catalyst._protocol.BarData
   _ctx = ctx
   _data = data
 
-  if verbose:
-    print("data._get_current_minute()",data._get_current_minute())
-
-    print("ctx.get_datetime()",ctx.get_datetime())
-    print("ctx.datetime",ctx.datetime)
-    olddatetime = ctx.datetime
-    ctx.datetime = histstart
-    print("ctx.get_datetime()",ctx.get_datetime())
-    print("ctx.datetime",ctx.datetime)
-    ctx.datetime = olddatetime
-    print("ctx.get_datetime()",ctx.get_datetime())
-    print("ctx.datetime",ctx.datetime)
-
   # if context isnt warmed up yet, use dry rebalances to populate historical return / regret data
   while ctx.mydatecursor < start:
     # real_simulation_dt_func = data.simulation_dt_func
     rebalance(ctx,data,dry=1)
     ctx.mydatecursor += ctx.timeinc
-
+  
   rebalance(ctx,data,dry=0)
   
   # catalyst.api
