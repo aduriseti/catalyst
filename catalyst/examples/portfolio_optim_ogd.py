@@ -12,15 +12,15 @@
 '''
 from __future__ import division
 import os
-os.getcwd()
-os.chdir(os.path.expanduser("~"))
 
 import pytz
 import datetime
+import pprint
+
 import numpy as np
+import traceback
 import pandas as pd
 import matplotlib.pyplot as plt
-import pprint
 
 from catalyst.api import record, symbols, symbol, order_target_percent
 from catalyst.utils.run_algo import run_algorithm
@@ -35,40 +35,64 @@ print("Exchange symbols:", syms)
 usdtsyms = [s for s in syms if "usdt" == s.split("/")[1].lower()]
 print("USDT symbols",usdtsyms)
 
+# # DAILY CONFIG
+# # catalyst ingest-exchange -x binance
+# reference = "usdt"
+# # dont know how to deal w/ inactive markets - blacklist them
+# blacklist = ["beam","bch","hbar"] + \
+#             [s for s,m in markets.items() if not m["active"]]
+# targets = [s.split("/")[0].lower() for s in usdtsyms]
+# # targets = ['btc','eth','ltc',"etc","iota",'dash','xmr',"ada","algo","beam","xrp","zrx","bat","bnb","bch",
+# #            "xlm","bchabc","zec","waves","qtum","mith"]
+# # targets = ['btc','eth','ltc',"etc","iota",'dash','xmr',"ada","algo","beam","xrp","zrx","bat","bnb","bch"]
+# # targets = ['btc','eth','ltc',"etc","iota",'dash','xmr']
+# # targets = ['btc','eth','ltc',"etc","iota"]
+# # targets = ['btc','eth','ltc','dash','xmr']
+# # targets = ['btc','eth','ltc']
+# # targets = ['btc','eth']
+# # exchangenm = "poloniex"
+# targets = [t for t in targets if t not in blacklist]
+# print("currency targets",targets)
+# exchangenm = "binance"
+# datafreq = "daily" # {"daily" | "minute"}
+
+# # Bitcoin data is available from 2015-3-2. Dates vary for other tokens.
+# # start = datetime.datetime(2017, 1, 1, 0, 0, 0, 0, pytz.utc)
+# # end = datetime.datetime(2017, 8, 16, 0, 0, 0, 0, pytz.utc)
+# # Bitcoin data is available from 2015-3-2. Dates vary for other tokens.
+# # start = datetime.datetime(2019, 1, 1, 0, 0, 0, 0, pytz.utc)
+# # end = datetime.datetime(2019, 8, 1, 0, 0, 0, 0, pytz.utc)
+# # start = datetime.datetime(2017, 9, 1, 0, 0, 0, 0, pytz.utc)
+# # end = datetime.datetime(2019, 9, 1, 0, 0, 0, 0, pytz.utc)
+# # start = datetime.datetime(2017, 9, 1, 0, 0, 0, 0, pytz.utc)
+# # end = datetime.datetime(2017, 10, 1, 0, 0, 0, 0, pytz.utc)
+# # start = datetime.datetime(2018, 9, 1, 0, 0, 0, 0, pytz.utc)
+# # end = datetime.datetime(2019, 9, 1, 0, 0, 0, 0, pytz.utc)
+
+# # histstart = datetime.datetime(2019,1,1,0,0,0,0,pytz.utc)
+# # start = datetime.datetime(2019, 9, 1, 0, 0, 0, 0, pytz.utc)
+# # end = datetime.datetime(2019, 9, 28, 0, 0, 0, 0, pytz.utc)
+# histstart = datetime.datetime(2019,1,1,0,0,0,0,pytz.utc)
+# start = datetime.datetime(2019, 9, 1, 0, 0, 0, 0, pytz.utc)
+# end = datetime.datetime(2019, 10, 12, 0, 0, 0, 0, pytz.utc)
+
+# MINUTE CONFIG
+"""
+catalyst ingest-exchange -x binance -i eth_usdt -f minute; \
+catalyst ingest-exchange -x binance -i btc_usdt -f minute; \
+catalyst ingest-exchange -x binance -i zrx_usdt -f minute; \
+catalyst ingest-exchange -x binance -i link_usdt -f minute;
+"""
 reference = "usdt"
-# dont know how to deal w/ inactive markets - blacklist them
-blacklist = ["beam","bch","hbar"] + \
-            [s for s,m in markets.items() if not m["active"]]
-targets = [s.split("/")[0].lower() for s in usdtsyms]
-# targets = ['btc','eth','ltc',"etc","iota",'dash','xmr',"ada","algo","beam","xrp","zrx","bat","bnb","bch",
-#            "xlm","bchabc","zec","waves","qtum","mith"]
-# targets = ['btc','eth','ltc',"etc","iota",'dash','xmr',"ada","algo","beam","xrp","zrx","bat","bnb","bch"]
-# targets = ['btc','eth','ltc',"etc","iota",'dash','xmr']
-# targets = ['btc','eth','ltc',"etc","iota"]
-# targets = ['btc','eth','ltc','dash','xmr']
-# targets = ['btc','eth','ltc']
+targets = ['btc','eth',"zrx","link"]
 # targets = ['btc','eth']
-# exchangenm = "poloniex"
-targets = [t for t in targets if t not in blacklist]
 print("currency targets",targets)
 exchangenm = "binance"
-datafreq = "daily" # | "minute"
+datafreq = "minute" # {"daily" | "minute"}
 
-# Bitcoin data is available from 2015-3-2. Dates vary for other tokens.
-# start = datetime.datetime(2017, 1, 1, 0, 0, 0, 0, pytz.utc)
-# end = datetime.datetime(2017, 8, 16, 0, 0, 0, 0, pytz.utc)
-# Bitcoin data is available from 2015-3-2. Dates vary for other tokens.
-# start = datetime.datetime(2019, 1, 1, 0, 0, 0, 0, pytz.utc)
-# end = datetime.datetime(2019, 8, 1, 0, 0, 0, 0, pytz.utc)
-# start = datetime.datetime(2017, 9, 1, 0, 0, 0, 0, pytz.utc)
-# end = datetime.datetime(2019, 9, 1, 0, 0, 0, 0, pytz.utc)
-# start = datetime.datetime(2017, 9, 1, 0, 0, 0, 0, pytz.utc)
-# end = datetime.datetime(2017, 10, 1, 0, 0, 0, 0, pytz.utc)
-# start = datetime.datetime(2018, 9, 1, 0, 0, 0, 0, pytz.utc)
-# end = datetime.datetime(2019, 9, 1, 0, 0, 0, 0, pytz.utc)
-histstart = datetime.datetime(2019,1,1,0,0,0,0,pytz.utc)
-start = datetime.datetime(2019, 9, 1, 0, 0, 0, 0, pytz.utc)
-end = datetime.datetime(2019, 9, 28, 0, 0, 0, 0, pytz.utc)
+histstart = datetime.datetime(2019,10,1,0,0,0,0,pytz.utc)
+start = datetime.datetime(2019, 10, 1, 0, 0, 0, 0, pytz.utc)
+end = datetime.datetime(2019, 10, 12, 0, 0, 0, 0, pytz.utc)
 
 import catalyst
 import catalyst.exchange
@@ -118,6 +142,7 @@ def initialize(context: catalyst.TradingAlgorithm):
     "daily": datetime.timedelta(days=1),
     "minute": datetime.timedelta(minutes=1),
   }[datafreq]
+  context.histstart = histstart
   context.start = start
   context.end = end
   context.datafreq = datafreq
@@ -149,7 +174,7 @@ def psuedounitsimplexprojection(v,Gadd=None,hadd=None,Aadd=None,badd=None,eps=1e
   npMs = [P,q,G,h,A,b]
   cvxopt.solvers.options['show_progress'] = False
   sol = cvxopt.solvers.qp(*[cvxopt.matrix(npM) for npM in npMs])
-  if verbose: print("quadprog status",sol["status"],"quadprog sol",sol["x"])
+  if verbose > 1: print("quadprog status",sol["status"],"quadprog sol",sol["x"])
   return np.array(sol["x"]).reshape((d,1))
 
 # SOURCE: https://scaron.info/blog/quadratic-programming-in-python.html
@@ -183,6 +208,10 @@ def unitsimplexprojection(v,eps=1e-4):
 # price of -1 indicates that asset is unavailable (i.e. does not exist at this point)
 # TODO: differentiate b/w assets that haven't been ingested yet and assets that have
 #       been ingested but dont have data extending back to this point in time
+import catalyst
+import catalyst.utils
+import catalyst.utils.calendars
+import catalyst.utils.calendars.exchange_calendar_open
 import catalyst.protocol
 def safehist(ctx: catalyst.TradingAlgorithm,
              data: catalyst.protocol.BarData,
@@ -193,37 +222,56 @@ def safehist(ctx: catalyst.TradingAlgorithm,
              assets: typing.Iterable[catalyst.api.symbol],
              barcount: int,
              default:float=-1):
+  if verbose > 2:
+    print(f"until",until,"ctx.start",ctx.start)
+    print(f"until < ctx.start", until < ctx.start)
   # if we want data before traidng start (i.e. during warm phase) - replace data w/ backtest bardata
   if until < ctx.start:
+    if verbose > 1:
+      print(f"Accessing data outside algorithms trading calendar - "\
+            f"creating new dataportal w/ data from {ctx.histstart} until {ctx.end}")
+    # tradingcalendar = catalyst.utils.calendars.exchange_calendar_open.OpenExchangeCalendar(end=ctx.end)
     dataportal = catalyst.exchange.exchange_data_portal.DataPortalExchangeBacktest(
       exchange_names=ctx.exchanges.keys(),
       asset_finder=None,
       trading_calendar=ctx.trading_calendar,
+      # trading_calendar=tradingcalendar,
       first_trading_day=ctx.histstart,
       last_available_session=ctx.start,
     )
-    data = catalyst.protocol.BarData(
+    if verbose > 2: 
+      print("Created new dataportal",dataportal)
+      print("ctx.get_datetime",ctx.get_datetime,ctx.get_datetime())
+    data: catalyst.protocol.BarData = catalyst.protocol.BarData(
       dataportal, # data_portal
-      lambda : until, # simulation_dt_func
+      # lambda : until, # simulation_dt_func
+      # ctx.get_datetime, # this works for some reason
+      lambda : until.timestamp() * 1e9, # simulation_dt_func
       datafreq, # data_frequeny
       ctx.trading_calendar, # trading_calendar
       ctx.restrictions, # restrictions
       universe_func=ctx._calculate_universe,
     )
+    if verbose > 2: 
+      print("Created new bar data object",data)
   def safehistgen():
     for a in assets:
-      if verbose: print(f"Getting price for asset {a.symbol}")
+      if verbose > 1: print(f"Getting price for asset {a.symbol}")
       try:
         frequency = {"daily":"1d","minute":"1m"}[datafreq]
         asshistdf: pd.DataFrame = data.history(a,fields='price',bar_count=barcount,frequency=frequency)
-        print("Got price data for dates in:",asshistdf.index)
+        if verbose > 1: print("Got price data for dates in:",asshistdf.index)
         asshist = asshistdf.values
         assert len(asshist) == barcount
         yield asshist
       # catalyst.exchange.exchange_errors.NoCandlesReceivedFromExchange
       except Exception as ex:
-        if verbose:
+        if verbose > 0:
           print(f"Getting price for asset {a.symbol} failed w/ {type(ex)}:\n{ex}")
+          if not isinstance(ex,
+              (catalyst.exchange.exchange_errors.NoCandlesReceivedFromExchange,
+               catalyst.exchange.exchange_errors.NoDataAvailableOnExchange)):
+            traceback.print_exc()
         yield np.ones((barcount,)) * default
   # context.get_datetime() == data.simulation_dt_func() == data.current_dt
   # TODO: figure out how to use data portal directly - for now just override the data.simulation_dt_func
@@ -235,7 +283,10 @@ def safehist(ctx: catalyst.TradingAlgorithm,
 
 # include dry parameter, which indicates that no trades should be executed
 #   - used to populate data fields w/ historical data
-def rebalance(ctx: catalyst.TradingAlgorithm, data: catalyst.protocol.BarData, dry: int): 
+def rebalance(ctx: catalyst.TradingAlgorithm, data: catalyst.protocol.BarData, 
+              ondt: datetime.datetime = None, dry: int=0): 
+  ondt = ondt or ctx.get_datetime()
+  
   # make some context variables local
   assets: typing.Iterable[catalyst.api.symbol] = ctx.assets
   N = ctx.nassets
@@ -244,7 +295,7 @@ def rebalance(ctx: catalyst.TradingAlgorithm, data: catalyst.protocol.BarData, d
   # get price block
   # currentpricedf = data.history(ctx.assets, fields='price',
   #                               bar_count=1, frequency='1d')
-  prices = safehist(data=data,until=ctx.get_datetime(),assets=assets,barcount=T+1,default=-1)
+  prices = safehist(ctx=ctx,data=data,until=ondt,assets=assets,barcount=T+1,default=-1)
   _prices = prices
   if debug:
     print("barcount",T+1,"prices",prices.shape)
@@ -256,10 +307,11 @@ def rebalance(ctx: catalyst.TradingAlgorithm, data: catalyst.protocol.BarData, d
   ctx.i += 1
   # skip days that arent multiples of rebalance period
   if ctx.i % ctx.rebint: return
-
-  if verbose:
-    drystr = {0:"WET",1:"DRY"}
-    print(f"{drystr} rebalance on period {ctx.i} w/ time {ctx.current_dt}, day {ctx.current_day}, and return interval {T}")
+  if verbose > 0:
+    drystr = {0:"WET",1:"DRY"}[dry]
+    # print(f"{drystr} rebalance on period {ctx.i} w/ time {ctx.get_datetime()},{data.current_dt}, "\
+    #       f"day {ctx.current_day}, and return interval {T}")
+    print(f"{drystr} rebalance on period {ctx.i} w/ datetime {ondt}, and return interval {T}")
 
   def concat(M,v):
     # print(v.shape,M.shape)
@@ -298,7 +350,8 @@ def rebalance(ctx: catalyst.TradingAlgorithm, data: catalyst.protocol.BarData, d
   # bi = np.mean((*b[-30:], bdelta),axis=0) # 1.06
   # bi = np.mean((*b[-60:], bdelta),axis=0)
   bi = np.mean((*b[-90:], bdelta),axis=0) # 1.17
-  if verbose: print("bi 90 day mean",bi)
+  if verbose > 1: 
+    print("bi 90 day mean",bi)
   # bi = np.mean((*b[-180:], bdelta),axis=0) # 1.17
   # bi = np.mean((*b[-365:], bdelta),axis=0) # 0.82
   # bi = np.mean((*b, bdelta),axis=0) # 0.82
@@ -308,10 +361,11 @@ def rebalance(ctx: catalyst.TradingAlgorithm, data: catalyst.protocol.BarData, d
     return 1/(2*np.pi*sig**2)**0.5 * np.exp(-x**2/(2*sig**2))
   # bi = 2*sum(normalrvpdf(i,1)*bij for i,bij in enumerate(reversed((*b,bdelta))))
   # bi = 2*sum(normalrvpdf(i,7)*bij for i,bij in enumerate(reversed((*b,bdelta))))
-  bi = 2*sum(normalrvpdf(i,30)*bij for i,bij in enumerate(reversed((*b,bdelta))))
+  # bi = 2*sum(normalrvpdf(i,30)*bij for i,bij in enumerate(reversed((*b,bdelta))))
   # bi = 2*sum(normalrvpdf(i,60)*bij for i,bij in enumerate(reversed((*b,bdelta))))
-  # bi = 2*sum(normalrvpdf(i,90)*bij for i,bij in enumerate(reversed((*b,bdelta))))
-  if verbose: print("bi normal window",bi)
+  bi = 2*sum(normalrvpdf(i,90)*bij for i,bij in enumerate(reversed((*b,bdelta))))
+  if verbose > 1: 
+    print("bi normal window",bi)
   # total gradient
   # bi = np.mean((*b, bdelta),axis=0)
 
@@ -352,7 +406,7 @@ def rebalance(ctx: catalyst.TradingAlgorithm, data: catalyst.protocol.BarData, d
   r = ctx.r
 
 
-  if verbose:
+  if verbose > 1:
     # print('r[i]',np.round(r[-1],2))
     # print("b[i]",np.round(b[-1],2))
     # print('punc[i]',np.round(punc,2))
@@ -361,6 +415,7 @@ def rebalance(ctx: catalyst.TradingAlgorithm, data: catalyst.protocol.BarData, d
     print("Geometric returns:\n",[*zip(asyms,pricegeodelta)])
     print("Unconstrained allocations:\n",[*zip(asyms,np.round(punc,3))])
     print("Constrained allocations:\n",[*zip(asyms,np.round(pi,3))])
+  if verbose > 0:
     C = ctx.portfolio.cash
     V = ctx.portfolio.portfolio_value
     print("cash",C,"portfolio_value",V,"proportion value in cash",C/V)
@@ -368,14 +423,13 @@ def rebalance(ctx: catalyst.TradingAlgorithm, data: catalyst.protocol.BarData, d
   # do not execute trades if before start date
   #   - used to avoid cold start problem
   #   - TODO: figure out how to replicate in live execution mode
-  print("ctx.current_day",ctx.current_day)
   if ctx.current_day and ctx.current_day < start: return
 
   if not dry:
     # order optimal weights for each asset
     for asset,avail,percent in zip(assets,availidx,pi):
-      if verbose: 
-        print(f"Asset {asset.symbol} availability: {avail}, allocating {percent} of portfolio")
+      if verbose > 0: 
+        print(f"Asset {asset.symbol} availability: {avail}, allocating {np.round(percent,2)} of portfolio")
       # dont bother allocating less than 1% of portfolio
       if avail and percent >= 1e-2:
         order_target_percent(asset,percent)
@@ -411,6 +465,7 @@ def rebalance(ctx: catalyst.TradingAlgorithm, data: catalyst.protocol.BarData, d
 #   - [ ] deployment
 #   - [ ] track performance w/ persistence
 # 10) minute execution
+#   - [ ] get a feel for performance w/ a btc,eth,usdt test
 #   - [ ] figure out how to ingest all minute data
 #   - [ ] figure out how to detect missing data and auto ingest
 #     - [ ] install dev branch
@@ -471,7 +526,8 @@ def handle_data(ctx: catalyst.TradingAlgorithm, data: catalyst._protocol.BarData
   # if context isnt warmed up yet, use dry rebalances to populate historical return / regret data
   while ctx.mydatecursor < start:
     # real_simulation_dt_func = data.simulation_dt_func
-    rebalance(ctx,data,dry=1)
+    print(f"Using dry rebalance on date {ctx.mydatecursor} to populte algo variabls")
+    rebalance(ctx,data,ctx.mydatecursor,dry=1)
     ctx.mydatecursor += ctx.timeinc
   
   rebalance(ctx,data,dry=0)
@@ -502,8 +558,16 @@ def analyze(ctx=None, results=None):
   # print([*zip(strats,np.round(returns.iloc[-1].values,3))])
   print([*zip(strats,returns.iloc[-1].values)])
   
-  LO = plt.stackplot(range(ctx.p.shape[0]),*ctx.p.T)
-  plt.legend(iter(LO),asyms+["usdt"])
+  allocations = ctx.p
+  options = np.array(asyms+["usdt"])
+  significantallocationidx = (allocations[1:,:] > 0.05).sum(axis=0) > 0
+  print("|allocations|",allocations.shape,"significantallocationidx",significantallocationidx.sum())
+  sigidx = significantallocationidx
+
+  significantallocations = allocations
+  significantallocations = allocations[:,sigidx]
+  LO = plt.stackplot(range(significantallocations.shape[0]),*significantallocations.T)
+  plt.legend(iter(LO),options[sigidx])
   plt.show()
 
   portfolio_returns = returns["portfolio_value"].values
@@ -511,9 +575,10 @@ def analyze(ctx=None, results=None):
                                 for el in portfolio_returns])
   L = min(ctx.p.shape[0],portfolio_returns[1:].shape[0])
   M = ctx.p[-L:,:] * portfolio_returns[-L:].reshape(-1,1)
+  M = M[:,sigidx]
   LO = plt.stackplot(range(M.shape[0]),*M.T,baseline="zero")
   plt.ylim(bottom=0)
-  plt.legend(iter(LO),asyms+["usdt"])
+  plt.legend(iter(LO),options[sigidx])
   plt.show()
 
   LO = plt.plot(returns)
@@ -580,8 +645,4 @@ if __name__ == '__main__':
 # #%%
 # plt.plot(results["portfolio_value"])
 # plt.show()
-#%%
-[*_ctx.__dict__.keys()]
-#%%
-_ctx.current_day
 #%%
