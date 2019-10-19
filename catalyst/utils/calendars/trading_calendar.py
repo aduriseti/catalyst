@@ -27,8 +27,6 @@ from pandas import (
     DatetimeIndex,
 )
 from pandas.tseries.offsets import CustomBusinessDay
-import pyximport
-import catalyst.utils.calendars._calendar_helpers
 from catalyst.utils.calendars._calendar_helpers import (
     next_divider_idx,
     previous_divider_idx,

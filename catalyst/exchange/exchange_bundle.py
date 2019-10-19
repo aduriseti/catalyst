@@ -831,8 +831,7 @@ class ExchangeBundle:
                                            field,
                                            data_frequency,
                                            algo_end_dt=None,
-                                           force_auto_ingest=False,
-                                           interpolategaps=True
+                                           force_auto_ingest=False
                                            ):
         """
         Retrieve price data history, ingest missing data.
@@ -852,7 +851,6 @@ class ExchangeBundle:
         Series
 
         """
-        print(f"ExchangeBundle.get_history_window_series_and_load({self.__class__,force_auto_ingest})")
         if AUTO_INGEST or force_auto_ingest:
             try:
                 series = self.get_history_window_series(
@@ -962,9 +960,7 @@ class ExchangeBundle:
                                   bar_count,
                                   field,
                                   data_frequency,
-                                  reset_reader=False,
-                                  interpolategaps=True):
-        print(f"ExchangeBundle.get_history_window_series({self.__class__})")
+                                  reset_reader=False):
         start_dt = get_start_dt(end_dt, bar_count, data_frequency, False)
         start_dt, _ = self.get_adj_dates(
             start_dt, end_dt, assets, data_frequency
@@ -1058,7 +1054,6 @@ class ExchangeBundle:
         data_frequency: str
 
         """
-        print(f"ExchangeBundle.clean({self.__class__,data_frequency})")
         log.debug('cleaning exchange {}, frequency {}'.format(
             self.exchange_name, data_frequency
         ))
