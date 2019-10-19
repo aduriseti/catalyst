@@ -91,8 +91,8 @@ exchangenm = "binance"
 datafreq = "minute" # {"daily" | "minute"}
 
 histstart = datetime.datetime(2019,10,1,0,0,0,0,pytz.utc)
-start = datetime.datetime(2019, 10, 1, 0, 0, 0, 0, pytz.utc)
-end = datetime.datetime(2019, 10, 12, 0, 0, 0, 0, pytz.utc)
+start = datetime.datetime(2019, 10, 12, 0, 0, 0, 0, pytz.utc)
+end = datetime.datetime(2019, 10, 18, 0, 0, 0, 0, pytz.utc)
 
 import catalyst
 import catalyst.exchange
@@ -244,9 +244,9 @@ def safehist(ctx: catalyst.TradingAlgorithm,
       print("ctx.get_datetime",ctx.get_datetime,ctx.get_datetime())
     data: catalyst.protocol.BarData = catalyst.protocol.BarData(
       dataportal, # data_portal
-      # lambda : until, # simulation_dt_func
+      lambda : until, # simulation_dt_func
       # ctx.get_datetime, # this works for some reason
-      lambda : until.timestamp() * 1e9, # simulation_dt_func
+      # lambda : until.timestamp() * 1e9, # simulation_dt_func
       datafreq, # data_frequeny
       ctx.trading_calendar, # trading_calendar
       ctx.restrictions, # restrictions
@@ -459,14 +459,17 @@ def rebalance(ctx: catalyst.TradingAlgorithm, data: catalyst.protocol.BarData,
 #   - [x] allocation
 #   - [x] performance vs allocation
 # 5) live execution
-#   - [x] use historical data to avoid cold start
+#   - [ ] use historical data to avoid cold start
+#     - [x] daily
+#     - [ ] minute
 #   - [ ] figure out how to use catalyst w/ real money
 #   - [ ] simulated -> live
 #   - [ ] deployment
 #   - [ ] track performance w/ persistence
 # 10) minute execution
-#   - [ ] get a feel for performance w/ a btc,eth,usdt test
-#   - [ ] figure out how to ingest all minute data
+#   - [x] get a feel for performance w/ a btc,eth,usdt test
+#   - [x] figure out how to ingest all minute data
+#     - Note: catalyst ingest-exchange -x binance -f minute; doesnt work b/c 
 #   - [ ] figure out how to detect missing data and auto ingest
 #     - [ ] install dev branch
 #     - [ ] modify data portal code 
